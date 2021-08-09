@@ -29,7 +29,7 @@ def set_template(args):
         args.num_gpu = 1
         args.device_idx = '0'
         args.optimizer = 'Adam'
-        args.lr = 0.0025
+        args.lr = 0.01
         args.enable_lr_schedule = True
         args.decay_step = 25
         args.gamma = 1.0
@@ -40,9 +40,9 @@ def set_template(args):
         args.model_code = 'bert'
         args.model_init_seed = 0
 
-        args.bert_dropout = 0.25
-        args.bert_hidden_units = 256 # embed size
+        args.bert_dropout = 0.20
+        args.bert_hidden_units = 128 # embed size
         args.bert_mask_prob = 0.30
-        args.bert_max_len = 12
+        args.bert_max_len = 13
         args.bert_num_blocks = 2
-        args.bert_num_heads = 8
+        args.bert_num_heads = 4
