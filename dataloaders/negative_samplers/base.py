@@ -4,14 +4,12 @@ import pickle
 
 
 class AbstractNegativeSampler(metaclass=ABCMeta):
-    def __init__(self, train, val, test, user_count, item_count, sample_size, seed, save_folder):
+    def __init__(self, train, eval, item_count, sample_size, mode, save_folder):
         self.train = train
-        self.val = val
-        self.test = test
-        self.user_count = user_count
+        self.eval = eval
         self.item_count = item_count
         self.sample_size = sample_size
-        self.seed = seed
+        self.mode = mode
         self.save_folder = save_folder
 
     @classmethod
@@ -37,5 +35,5 @@ class AbstractNegativeSampler(metaclass=ABCMeta):
 
     def _get_save_path(self):
         folder = Path(self.save_folder)
-        filename = '{}-sample_size{}-seed{}.pkl'.format(self.code(), self.sample_size, self.seed)
+        filename = '{}-sample_size{}-{}.pkl'.format(self.code(), self.sample_size, self.mode)
         return folder.joinpath(filename)

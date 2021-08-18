@@ -13,7 +13,7 @@ class TokenEmbedding(nn.Embedding):
         
         data_list = []
 
-        with open('./Data/preprocessed/yna_min_rating0-min_uc5-min_sc2-splitleave_one_out/dataset.pkl', 'rb') as f:
+        with open('./Data/preprocessed/yna_min_uc3-min_sc0/dataset.pkl', 'rb') as f:
             while True:
                 try:
                     data = pickle.load(f)
@@ -45,5 +45,5 @@ class TokenEmbedding(nn.Embedding):
         weight = torch.cat((zero, weight, mask), 0)
 
         super().__init__(vocab_size, embed_size, padding_idx=0, _weight=weight)
-        
+
         self.weight.requires_grad=True

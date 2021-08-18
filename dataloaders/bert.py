@@ -13,21 +13,14 @@ class BertDataloader(AbstractDataloader):
         self.mask_prob = args.bert_mask_prob
         self.CLOZE_MASK_TOKEN = self.item_count + 1
 
-        code = args.train_negative_sampler_code
-        train_negative_sampler = negative_sampler_factory(code, self.train, self.val, self.test,
-                                                          self.user_count, self.item_count,
-                                                          args.train_negative_sample_size,
-                                                          args.train_negative_sampling_seed,
-                                                          self.save_folder)
         code = args.test_negative_sampler_code
-        test_negative_sampler = negative_sampler_factory(code, self.train, self.val, self.test,
-                                                         self.user_count, self.item_count,
-                                                         args.test_negative_sample_size,
-                                                         args.test_negative_sampling_seed,
-                                                         self.save_folder)
+        val_negative_sampler = negative_sampler_factory(code, self.train, self.val,
+                                                          self.item_count,
+                                                          args.test_negative_sample_size,
+                                                          'val',
+                                                          self.save_folder)
 
-        self.train_negative_samples = train_negative_sampler.get_negative_samples()
-        self.test_negative_samples = test_negative_sampler.get_negative_samples()
+        self.val_negative_samples = val_negative_sampler.get_negative_samples()
 
     @classmethod
     def code(cls):
@@ -63,8 +56,12 @@ class BertDataloader(AbstractDataloader):
         return dataloader
 
     def _get_eval_dataset(self, mode):
-        answers = self.val if mode == 'val' else self.test
-        dataset = BertEvalDataset(self.train, answers, self.max_len, self.CLOZE_MASK_TOKEN, self.test_negative_samples)
+        
+        if mode == 'val':
+            dataset = BertValDataset(self.val, self.max_len, self.CLOZE_MASK_TOKEN, self.val_negative_samples)
+        else:
+            dataset = BertTestDataset(self.test, self.max_len, self.CLOZE_MASK_TOKEN)
+
         return dataset
 
 
@@ -119,11 +116,10 @@ class BertTrainDataset(data_utils.Dataset):
 
 
 
-class BertEvalDataset(data_utils.Dataset):
-    def __init__(self, u2seq, u2answer, max_len, mask_token, negative_samples):
+class BertValDataset(data_utils.Dataset):
+    def __init__(self, u2seq, max_len, mask_token, negative_samples):
         self.u2seq = u2seq
         self.users = sorted(self.u2seq.keys())
-        self.u2answer = u2answer
         self.max_len = max_len
         self.mask_token = mask_token
         self.negative_samples = negative_samples
@@ -133,12 +129,12 @@ class BertEvalDataset(data_utils.Dataset):
 
     def __getitem__(self, index):
         user = self.users[index]
-        seq = self.u2seq[user]
-        answer = self.u2answer[user]
+        seq = self.u2seq[user][:-1]
+        answer = self.u2seq[user][-1]
         negs = self.negative_samples[user]
 
-        candidates = answer + negs
-        labels = [1] * len(answer) + [0] * len(negs)
+        candidates = [answer] + negs
+        labels = [1] + [0] * len(negs)
 
         seq = seq + [self.mask_token]
         seq = seq[-self.max_len:]
@@ -147,3 +143,24 @@ class BertEvalDataset(data_utils.Dataset):
 
         return torch.LongTensor(seq), torch.LongTensor(candidates), torch.LongTensor(labels)
 
+class BertTestDataset(data_utils.Dataset):
+    def __init__(self, u2seq, max_len, mask_token):
+        self.u2seq = u2seq
+        self.users = sorted(self.u2seq.keys())
+        self.max_len = max_len
+        self.mask_token = mask_token
+
+    def __len__(self):
+        return len(self.users)
+
+    def __getitem__(self, index):
+        user = self.users[index]
+        seq = self.u2seq[user][:-1]
+        answer = self.u2seq[user][-1]
+
+        seq = seq + [self.mask_token]
+        seq = seq[-self.max_len:]
+        padding_len = self.max_len - len(seq)
+        seq = [0] * padding_len + seq
+
+        return torch.LongTensor(seq), torch.LongTensor([answer])

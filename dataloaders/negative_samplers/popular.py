@@ -15,10 +15,8 @@ class PopularNegativeSampler(AbstractNegativeSampler):
 
         negative_samples = {}
         print('Sampling negative items')
-        for user in trange(self.user_count):
-            seen = set(self.train[user])
-            seen.update(self.val[user])
-            seen.update(self.test[user])
+        for user in self.eval.keys():
+            seen = set(self.eval[user])
 
             samples = []
             for item in popular_items:
@@ -34,9 +32,7 @@ class PopularNegativeSampler(AbstractNegativeSampler):
 
     def items_by_popularity(self):
         popularity = Counter()
-        for user in range(self.user_count):
+        for user in self.train.keys():
             popularity.update(self.train[user])
-            popularity.update(self.val[user])
-            popularity.update(self.test[user])
         popular_items = sorted(popularity, key=popularity.get, reverse=True)
         return popular_items

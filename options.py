@@ -24,6 +24,7 @@ parser.add_argument('--test_model_path', type=str, default=None)
 # Dataset
 ################
 parser.add_argument('--dataset_code', type=str, default='yna', choices=DATASETS.keys())
+parser.add_argument('--dataset_datetime', type=str, default='20210712 1210', choices=['20210712 1210', '20210713 1310', '20210714 1410', '20210715 1510', '20210717 1710', '20210718 1810'])
 parser.add_argument('--min_rating', type=int, default=4, help='Only keep ratings greater than equal to this value') # not used for yna
 parser.add_argument('--min_uc', type=int, default=5, help='Only keep users with more than min_uc ratings')
 parser.add_argument('--min_sc', type=int, default=0, help='Only keep items with more than min_sc ratings')
