@@ -24,7 +24,7 @@ def ndcg(scores, labels, k):
     return ndcg.mean()
 
 
-def recalls_and_ndcgs_for_ks(scores, labels, ks):
+def metrics_for_ks(scores, labels, ks):
     metrics = {}
 
     scores = scores
@@ -38,13 +38,21 @@ def recalls_and_ndcgs_for_ks(scores, labels, ks):
        cut = cut[:, :k]
        hits = labels_float.gather(1, cut)
        metrics['Recall@%d' % k] = \
-           (hits.sum(1) / torch.min(torch.Tensor([k]).to(labels.device), labels.sum(1).float())).mean().cpu().item()
+           (hits.sum(1) / torch.min(torch.Tensor([k]).to(labels.device), answer_count.float())).mean().cpu().item()
 
-       position = torch.arange(2, 2+k)
-       weights = 1 / torch.log2(position.float())
-       dcg = (hits * weights.to(hits.device)).sum(1)
-       idcg = torch.Tensor([weights[:min(int(n), k)].sum() for n in answer_count]).to(dcg.device)
-       ndcg = (dcg / idcg).mean()
-       metrics['NDCG@%d' % k] = ndcg.cpu().item()
+    #    position = torch.arange(2, 2+k)
+    #    weights = 1 / torch.log2(position.float())
+    #    dcg = (hits * weights.to(hits.device)).sum(1)
+    #    idcg = torch.Tensor([weights[:min(int(n), k)].sum() for n in answer_count]).to(dcg.device)
+    #    ndcg = (dcg / idcg).mean()
+    #    metrics['NDCG@%d' % k] = ndcg.cpu().item()
+
+       weights = 1 / torch.arange(1, k+1).float()
+       rr = (hits * weights.to(hits.device)).sum(1)
+       mrr = rr.mean()
+       metrics['MRR@%d' % k] = mrr.cpu().item()
+       
+       diversity = torch.unique(cut).size()[0]
+       metrics['Diversity@%d' % k] = diversity
 
     return metrics

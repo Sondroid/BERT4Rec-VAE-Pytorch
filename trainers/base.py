@@ -26,8 +26,6 @@ class AbstractTrainer(metaclass=ABCMeta):
         self.val_loader = val_loader
         self.test_loader = test_loader
         self.optimizer = self._create_optimizer()
-        if args.enable_lr_schedule:
-            self.lr_scheduler = optim.lr_scheduler.StepLR(self.optimizer, step_size=args.decay_step, gamma=args.gamma)
 
         self.num_epochs = args.num_epochs
         self.metric_ks = args.metric_ks
@@ -77,8 +75,6 @@ class AbstractTrainer(metaclass=ABCMeta):
 
     def train_one_epoch(self, epoch, accum_iter):
         self.model.train()
-        if self.args.enable_lr_schedule:
-            self.lr_scheduler.step()
 
         average_meter_set = AverageMeterSet()
         tqdm_dataloader = tqdm(self.train_loader)
@@ -126,10 +122,11 @@ class AbstractTrainer(metaclass=ABCMeta):
 
                 for k, v in metrics.items():
                     average_meter_set.update(k, v)
-                description_metrics = ['NDCG@%d' % k for k in self.metric_ks[:3]] +\
-                                      ['Recall@%d' % k for k in self.metric_ks[:3]]
+                description_metrics = ['Recall@%d' % k for k in self.metric_ks[:3]] +\
+                                      ['MRR@%d' % k for k in self.metric_ks[:3]] +\
+                                      ['Diversity@%d' % k for k in self.metric_ks[:3]]
                 description = 'Val: ' + ', '.join(s + ' {:.3f}' for s in description_metrics)
-                description = description.replace('NDCG', 'N').replace('Recall', 'R')
+                description = description.replace('Recall', 'R').replace('MRR', 'M').replace('Diversity', 'D')
                 description = description.format(*(average_meter_set[k].avg for k in description_metrics))
                 tqdm_dataloader.set_description(description)
 
@@ -160,10 +157,11 @@ class AbstractTrainer(metaclass=ABCMeta):
 
                 for k, v in metrics.items():
                     average_meter_set.update(k, v)
-                description_metrics = ['NDCG@%d' % k for k in self.metric_ks[:3]] +\
-                                      ['Recall@%d' % k for k in self.metric_ks[:3]]
+                description_metrics = ['Recall@%d' % k for k in self.metric_ks[:3]] +\
+                                      ['MRR@%d' % k for k in self.metric_ks[:3]] +\
+                                      ['Diversity@%d' % k for k in self.metric_ks[:3]]
                 description = 'Val: ' + ', '.join(s + ' {:.3f}' for s in description_metrics)
-                description = description.replace('NDCG', 'N').replace('Recall', 'R')
+                description = description.replace('Recall', 'R').replace('MRR', 'M').replace('Diversity', 'D')
                 description = description.format(*(average_meter_set[k].avg for k in description_metrics))
                 tqdm_dataloader.set_description(description)
 

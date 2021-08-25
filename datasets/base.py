@@ -17,10 +17,9 @@ import pickle
 class AbstractDataset(metaclass=ABCMeta):
     def __init__(self, args):
         self.args = args
-        self.min_rating = args.min_rating
         self.min_uc = args.min_uc
         self.min_sc = args.min_sc
-        self.split = args.split
+        self.dataset_datetime = args.dataset_datetime
 
         assert self.min_uc >= 2, 'Need at least 2 ratings per user for validation and test'
 
@@ -51,7 +50,7 @@ class AbstractDataset(metaclass=ABCMeta):
         return []
 
     @abstractmethod
-    def load_ratings_df(self):
+    def load_clicks_df(self):
         pass
 
     def load_dataset(self):
@@ -67,17 +66,27 @@ class AbstractDataset(metaclass=ABCMeta):
             return
         if not dataset_path.parent.is_dir():
             dataset_path.parent.mkdir(parents=True)
-        # self.maybe_download_raw_dataset()
-        df = self.load_ratings_df()
-        # df = self.make_implicit(df)
-        df = self.filter_triplets(df)
-        df, umap, smap = self.densify_index(df)
-        train, val, test = self.split_df(df, len(umap))
+
+        train, val, test = self.load_clicks_df()
+        # train = self.filter_triplets(train)
+        # using already filtered data
+
+        train, val, test, smap = self.map_int_item_id(train, val, test)
+
+        train = self.get_item_seq(train)
+        val = self.get_item_seq(val)
+        test = self.get_item_seq(test)
+
+        train = dict(train)
+        val = self.add_shifts(val)
+        test = self.add_shifts(test)
+
         dataset = {'train': train,
                    'val': val,
                    'test': test,
-                   'umap': umap,
-                   'smap': smap}
+                   'smap': smap
+                   }
+        
         with dataset_path.open('wb') as f:
             pickle.dump(dataset, f)
 
@@ -131,44 +140,43 @@ class AbstractDataset(metaclass=ABCMeta):
     def densify_index(self, df):
         print('Densifying index')
         umap = {u: i for i, u in enumerate(set(df['uid']))}
-        smap = {s: i for i, s in enumerate(set(df['sid']))}
+        smap = {s: (i+1) for i, s in enumerate(set(df['sid']))}
         df['uid'] = df['uid'].map(umap)
         df['sid'] = df['sid'].map(smap)
         return df, umap, smap
 
+    def map_int_item_id(self, train, val, test):
+        smap = {s: (i+1) for i, s in enumerate(set(train['sid']) | set(val['sid']) | set(test['sid']))}
+        train['sid'] = train['sid'].map(smap)
+        val['sid'] = val['sid'].map(smap)
+        test['sid'] = test['sid'].map(smap)
+        return train, val, test, smap
+
     def split_df(self, df, user_count):
-        if self.args.split == 'leave_one_out':
-            print('Splitting')
-            user_group = df.groupby('uid')
-            user2items = user_group.progress_apply(lambda d: list(d.sort_values(by='timestamp')['sid']))
-            train, val, test = {}, {}, {}
-            for user in range(user_count):
-                items = user2items[user]
-                train[user], val[user], test[user] = items[:-2], items[-2:-1], items[-1:]
-            return train, val, test
-        elif self.args.split == 'holdout':
-            print('Splitting')
-            np.random.seed(self.args.dataset_split_seed)
-            eval_set_size = self.args.eval_set_size
+        print('Splitting')
+        user_group = df.groupby('uid')
+        user2items = user_group.progress_apply(lambda d: list(d.sort_values(by='timestamp')['sid']))
+        train, val, test = {}, {}, {}
+        for user in range(user_count):
+            items = user2items[user]
+            train[user], val[user], test[user] = items[:-2], items[-2:-1], items[-1:]
+        return train, val, test
 
-            # Generate user indices
-            permuted_index = np.random.permutation(user_count)
-            train_user_index = permuted_index[                :-2*eval_set_size]
-            val_user_index   = permuted_index[-2*eval_set_size:  -eval_set_size]
-            test_user_index  = permuted_index[  -eval_set_size:                ]
+    def get_item_seq(self, df):
+        user_group = df.groupby('uid')
+        user2items = user_group.progress_apply(lambda d: list(d.sort_values(by='timestamp')['sid']))
+        return user2items
 
-            # Split DataFrames
-            train_df = df.loc[df['uid'].isin(train_user_index)]
-            val_df   = df.loc[df['uid'].isin(val_user_index)]
-            test_df  = df.loc[df['uid'].isin(test_user_index)]
+    def add_shifts(self, df):
+        res = {}
+        id = 0
+        for k in df.keys():
+            sess = df[k]
+            for j in range(2, len(sess) + 1):
+                res[id] = sess[:j]
+                id += 1
+        return res
 
-            # DataFrame to dict => {uid : list of sid's}
-            train = dict(train_df.groupby('uid').progress_apply(lambda d: list(d['sid'])))
-            val   = dict(val_df.groupby('uid').progress_apply(lambda d: list(d['sid'])))
-            test  = dict(test_df.groupby('uid').progress_apply(lambda d: list(d['sid'])))
-            return train, val, test
-        else:
-            raise NotImplementedError
 
     def _get_rawdata_root_path(self):
         return Path(RAW_DATASET_ROOT_FOLDER)
@@ -183,8 +191,8 @@ class AbstractDataset(metaclass=ABCMeta):
 
     def _get_preprocessed_folder_path(self):
         preprocessed_root = self._get_preprocessed_root_path()
-        folder_name = '{}_min_rating{}-min_uc{}-min_sc{}-split{}' \
-            .format(self.code(), self.min_rating, self.min_uc, self.min_sc, self.split)
+        folder_name = '{}_min_uc{}-min_sc{}_{}' \
+            .format(self.code(), self.min_uc, self.min_sc, self.dataset_datetime)
         return preprocessed_root.joinpath(folder_name)
 
     def _get_preprocessed_dataset_path(self):

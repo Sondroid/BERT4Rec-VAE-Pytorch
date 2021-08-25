@@ -8,19 +8,9 @@ import torch.utils.data as data_utils
 class BertDataloader(AbstractDataloader):
     def __init__(self, args, dataset):
         super().__init__(args, dataset)
-        args.num_items = len(self.smap)
         self.max_len = args.bert_max_len
         self.mask_prob = args.bert_mask_prob
         self.CLOZE_MASK_TOKEN = self.item_count + 1
-
-        code = args.test_negative_sampler_code
-        val_negative_sampler = negative_sampler_factory(code, self.train, self.val,
-                                                          self.item_count,
-                                                          args.test_negative_sample_size,
-                                                          'val',
-                                                          self.save_folder)
-
-        self.val_negative_samples = val_negative_sampler.get_negative_samples()
 
     @classmethod
     def code(cls):
@@ -58,9 +48,9 @@ class BertDataloader(AbstractDataloader):
     def _get_eval_dataset(self, mode):
         
         if mode == 'val':
-            dataset = BertValDataset(self.val, self.max_len, self.CLOZE_MASK_TOKEN, self.val_negative_samples)
+            dataset = BertEvalDataset(self.val, self.max_len, self.CLOZE_MASK_TOKEN)
         else:
-            dataset = BertTestDataset(self.test, self.max_len, self.CLOZE_MASK_TOKEN)
+            dataset = BertEvalDataset(self.test, self.max_len, self.CLOZE_MASK_TOKEN)
 
         return dataset
 
@@ -114,36 +104,7 @@ class BertTrainDataset(data_utils.Dataset):
     def _getseq(self, user):
         return self.u2seq[user]
 
-
-
-class BertValDataset(data_utils.Dataset):
-    def __init__(self, u2seq, max_len, mask_token, negative_samples):
-        self.u2seq = u2seq
-        self.users = sorted(self.u2seq.keys())
-        self.max_len = max_len
-        self.mask_token = mask_token
-        self.negative_samples = negative_samples
-
-    def __len__(self):
-        return len(self.users)
-
-    def __getitem__(self, index):
-        user = self.users[index]
-        seq = self.u2seq[user][:-1]
-        answer = self.u2seq[user][-1]
-        negs = self.negative_samples[user]
-
-        candidates = [answer] + negs
-        labels = [1] + [0] * len(negs)
-
-        seq = seq + [self.mask_token]
-        seq = seq[-self.max_len:]
-        padding_len = self.max_len - len(seq)
-        seq = [0] * padding_len + seq
-
-        return torch.LongTensor(seq), torch.LongTensor(candidates), torch.LongTensor(labels)
-
-class BertTestDataset(data_utils.Dataset):
+class BertEvalDataset(data_utils.Dataset):
     def __init__(self, u2seq, max_len, mask_token):
         self.u2seq = u2seq
         self.users = sorted(self.u2seq.keys())

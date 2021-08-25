@@ -22,7 +22,7 @@ class BERT(nn.Module):
         dropout = args.bert_dropout
 
         # embedding for BERT, sum of positional, segment, token embeddings
-        self.embedding = BERTEmbedding(vocab_size=vocab_size, embed_size=self.hidden, max_len=max_len, dropout=dropout)
+        self.embedding = BERTEmbedding(vocab_size=vocab_size, embed_size=self.hidden, max_len=max_len, dropout=dropout, args=args)
 
         # multi-layers transformer blocks, deep network
         self.transformer_blocks = nn.ModuleList(
