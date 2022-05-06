@@ -1,4 +1,4 @@
-# Adapting BERT4Rec into the news domain.
+# Adaptation of BERT4Rec into the news domain.
 
 Sequential Recommender System for website of Yonhap News Agency.
 
